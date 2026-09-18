@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFrameworks>net6.0;net7.0;net8.0;net9.0;net10.0</TargetFrameworks>
+		<LangVersion>latest</LangVersion>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<PackageId>Beeq.Codec.BinaryCodec</PackageId>
+		<Version>1.0.0</Version>
+		<Authors>BeeQ</Authors>
+		<Description>Encode an Decode chains of numbers in binary format</Description>
+		<RepositoryUrl>https://github.com/Conntinnum/BeeQ.Codec.BinaryCodec</RepositoryUrl>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+		<PackageIcon>Beeq.Codec.BinaryCodec.png</PackageIcon>
+		<Title>BeeQ Codec.BinaryCodec</Title>
+		<RepositoryType>git</RepositoryType>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Remove=".gitignore" />
+		<None Remove="desktop.ini" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="" />
+		<None Include="Beeq.Codec.BinaryCodec.png" Pack="true" PackagePath="" />
+	</ItemGroup>
+</Project>
