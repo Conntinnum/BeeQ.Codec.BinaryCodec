@@ -3,7 +3,7 @@ using System.Text;
 
 namespace BeeQ.Codec.BinaryCodec;
 
-internal static class InternalEncoder
+internal class InternalEncoder
 {
     internal const byte TAG_FULL = 0xff;
     internal const byte TAG_WITHDATA = 0x00;
@@ -19,8 +19,9 @@ internal static class InternalEncoder
     internal const byte TAG_NUMBERS_DOUBLE = 0x09;
     internal const byte TAG_NUMBERS_DECIMAL = 0x0A;
     internal const byte TAG_NUMBERS_GUID = 0x0B;
+    internal const byte TAG_NUMBERS_STRING = 0x0C;
 
-    internal const byte TAG_NUMBERS_WHITDATA_PREFIX = 0x10; // asegurarse que sea mayor que el máximo de los valores x tipo de dato
+    internal const byte TAG_NUMBERS_WHITDATA_PREFIX = 0x80; // asegurarse que sea mayor que el máximo de los valores x tipo de dato
     internal const byte TAG_NUMBERS_WHITDATA_BYTE = TAG_NUMBERS_WHITDATA_PREFIX + TAG_NUMBERS_BYTE;
     internal const byte TAG_NUMBERS_WHITDATA_USHORT = TAG_NUMBERS_WHITDATA_PREFIX + TAG_NUMBERS_USHORT;
     internal const byte TAG_NUMBERS_WHITDATA_SHORT = TAG_NUMBERS_WHITDATA_PREFIX + TAG_NUMBERS_SHORT;
@@ -32,6 +33,10 @@ internal static class InternalEncoder
     internal const byte TAG_NUMBERS_WHITDATA_DOUBLE = TAG_NUMBERS_WHITDATA_PREFIX + TAG_NUMBERS_DOUBLE;
     internal const byte TAG_NUMBERS_WHITDATA_DECIMAL = TAG_NUMBERS_WHITDATA_PREFIX + TAG_NUMBERS_DECIMAL;
     internal const byte TAG_NUMBERS_WHITDATA_GUID = TAG_NUMBERS_WHITDATA_PREFIX + TAG_NUMBERS_GUID;
+    internal const byte TAG_NUMBERS_WHITDATA_STRING = TAG_NUMBERS_WHITDATA_PREFIX + TAG_NUMBERS_STRING;
+
+    internal Func<string, byte[]> StringEncoder { get; set; } = Encoding.UTF8.GetBytes;
+    internal Func<byte[], string> StringDecoder { get; set; } = Encoding.UTF8.GetString;
 
     #region Encode Simple
 
@@ -46,11 +51,12 @@ internal static class InternalEncoder
     public static byte[] Encode(params double[] nums) => InternalEncode([.. nums.Select(p => BitConverter.GetBytes(p))], TAG_NUMBERS_DOUBLE);
     public static byte[] Encode(params decimal[] nums) => InternalEncode([.. nums.Select(p => DecimalToBytes(p))], TAG_NUMBERS_DECIMAL);
     public static byte[] Encode(params Guid[] nums) => InternalEncode([.. nums.Select(p => p.ToByteArray())], TAG_NUMBERS_GUID);
+    public byte[] Encode(params string[] nums) => InternalEncode([.. nums.Select(p => StringEncoder(p))], TAG_NUMBERS_GUID);
 
     private static byte[] InternalEncode(List<byte[]> list, byte code)
     {
         if (list.Count > ushort.MaxValue)
-            throw new Exception($"Máximo {ushort.MaxValue} números por bloque simple");
+            throw new MaxLengthExceededBinaryCodecException();
         var count = BitConverter.GetBytes((ushort)list.Count);
         var data = list.SelectMany(p => p);
 
@@ -61,23 +67,23 @@ internal static class InternalEncoder
 
     #region Encode With Data
 
-    public static byte[] EncodeWithData(byte num, string data) => InternalEncodeWithData([num], data, TAG_NUMBERS_WHITDATA_BYTE);
-    public static byte[] EncodeWithData(ushort num, string data) => InternalEncodeWithData(BitConverter.GetBytes(num), data, TAG_NUMBERS_WHITDATA_USHORT);
-    public static byte[] EncodeWithData(short num, string data) => InternalEncodeWithData(BitConverter.GetBytes(num), data, TAG_NUMBERS_WHITDATA_SHORT);
-    public static byte[] EncodeWithData(uint num, string data) => InternalEncodeWithData(BitConverter.GetBytes(num), data, TAG_NUMBERS_WHITDATA_UINT);
-    public static byte[] EncodeWithData(int num, string data) => InternalEncodeWithData(BitConverter.GetBytes(num), data, TAG_NUMBERS_WHITDATA_INT);
-    public static byte[] EncodeWithData(ulong num, string data) => InternalEncodeWithData(BitConverter.GetBytes(num), data, TAG_NUMBERS_WHITDATA_ULONG);
-    public static byte[] EncodeWithData(long num, string data) => InternalEncodeWithData(BitConverter.GetBytes(num), data, TAG_NUMBERS_WHITDATA_LONG);
-    public static byte[] EncodeWithData(float num, string data) => InternalEncodeWithData(BitConverter.GetBytes(num), data, TAG_NUMBERS_WHITDATA_FLOAT);
-    public static byte[] EncodeWithData(double num, string data) => InternalEncodeWithData(BitConverter.GetBytes(num), data, TAG_NUMBERS_WHITDATA_DOUBLE);
-    public static byte[] EncodeWithData(decimal num, string data) => InternalEncodeWithData(DecimalToBytes(num), data, TAG_NUMBERS_WHITDATA_DECIMAL);
-    public static byte[] EncodeWithData(Guid num, string data) => InternalEncodeWithData(num.ToByteArray(), data, TAG_NUMBERS_WHITDATA_GUID);
+    public byte[] EncodeWithData(byte num, string data) => InternalEncodeWithData([num], data, TAG_NUMBERS_WHITDATA_BYTE);
+    public byte[] EncodeWithData(ushort num, string data) => InternalEncodeWithData(BitConverter.GetBytes(num), data, TAG_NUMBERS_WHITDATA_USHORT);
+    public byte[] EncodeWithData(short num, string data) => InternalEncodeWithData(BitConverter.GetBytes(num), data, TAG_NUMBERS_WHITDATA_SHORT);
+    public byte[] EncodeWithData(uint num, string data) => InternalEncodeWithData(BitConverter.GetBytes(num), data, TAG_NUMBERS_WHITDATA_UINT);
+    public byte[] EncodeWithData(int num, string data) => InternalEncodeWithData(BitConverter.GetBytes(num), data, TAG_NUMBERS_WHITDATA_INT);
+    public byte[] EncodeWithData(ulong num, string data) => InternalEncodeWithData(BitConverter.GetBytes(num), data, TAG_NUMBERS_WHITDATA_ULONG);
+    public byte[] EncodeWithData(long num, string data) => InternalEncodeWithData(BitConverter.GetBytes(num), data, TAG_NUMBERS_WHITDATA_LONG);
+    public byte[] EncodeWithData(float num, string data) => InternalEncodeWithData(BitConverter.GetBytes(num), data, TAG_NUMBERS_WHITDATA_FLOAT);
+    public byte[] EncodeWithData(double num, string data) => InternalEncodeWithData(BitConverter.GetBytes(num), data, TAG_NUMBERS_WHITDATA_DOUBLE);
+    public byte[] EncodeWithData(decimal num, string data) => InternalEncodeWithData(DecimalToBytes(num), data, TAG_NUMBERS_WHITDATA_DECIMAL);
+    public byte[] EncodeWithData(Guid num, string data) => InternalEncodeWithData(num.ToByteArray(), data, TAG_NUMBERS_WHITDATA_GUID);
 
-    public static byte[] InternalEncodeWithData(byte[] num, string data, byte code)
+    public byte[] InternalEncodeWithData(byte[] num, string data, byte code)
     {
-        var _data = Encoding.UTF8.GetBytes(data);
+        var _data = StringEncoder(data);
         if (_data.Length > ushort.MaxValue)
-            throw new Exception($"Máximo {ushort.MaxValue} caracteres por bloque");
+            throw new MaxLengthExceededBinaryCodecException();
         var dataSize = (ushort)_data.Length;
         var _size = BitConverter.GetBytes(dataSize);
 
@@ -88,12 +94,12 @@ internal static class InternalEncoder
 
     #region Decode
 
-    public static List<CodecItem> Decode(byte[] bytes) 
+    public List<CodecItem> Decode(byte[] bytes) 
     {
         var totalCount = bytes.Length;
         if (totalCount == 0 || bytes[0] == 0xff) return [];
         if (totalCount < 2)
-            throw new Exception("Formato de codigo con valores inválido");
+            throw new InvalidBinaryCodecException();
 
         var result = new List<CodecItem>();
         var index = 1;
@@ -113,6 +119,7 @@ internal static class InternalEncoder
                 TAG_NUMBERS_DOUBLE => InternalDecodeDouble(bytes, ref index),
                 TAG_NUMBERS_DECIMAL => InternalDecodeDecimal(bytes, ref index),
                 TAG_NUMBERS_GUID => InternalDecodeGuid(bytes, ref index),
+                TAG_NUMBERS_STRING => InternalDecodeString(bytes, ref index),
 
                 // numeros con valores
                 TAG_NUMBERS_WHITDATA_BYTE => [InternalDecodeByteWithData(bytes, ref index)],
@@ -126,8 +133,9 @@ internal static class InternalEncoder
                 TAG_NUMBERS_WHITDATA_DOUBLE => [InternalDecodeDoubleWithData(bytes, ref index)],
                 TAG_NUMBERS_WHITDATA_DECIMAL => [InternalDecodeDecimalWithData(bytes, ref index)],
                 TAG_NUMBERS_WHITDATA_GUID => [InternalDecodeGuidWithData(bytes, ref index)],
+                TAG_NUMBERS_WHITDATA_STRING => [InternalDecodeStringWithData(bytes, ref index)],
 
-                _ => throw new Exception("Formato de sección inválido")
+                _ => throw new InvalidTagBinaryCodecException()
             });
             result.AddRange(value);
         } while (index < totalCount);
@@ -305,8 +313,25 @@ internal static class InternalEncoder
         index = pointer; // tag + cant + content
         return results.Select(num => new CodecItemGuid() { Number = num });
     }
+    private IEnumerable<CodecItemString> InternalDecodeString(byte[] bytes, ref int index)
+    {
+        var cant = BitConverter.ToUInt16(bytes.AsSpan(index + 1, 2)); // cantidad de strings
+        var pointer = index + 1 + 2;
 
-    private static CodecItemByte InternalDecodeByteWithData(byte[] bytes, ref int index)
+        var results = new List<string>();
+        for (ushort i = 0; i < cant; i++)
+        {
+            var len = BitConverter.ToUInt16(bytes.AsSpan(pointer, 2));
+            pointer += 2;
+            var value = StringDecoder([.. bytes.AsSpan(pointer, len)]);
+            results.Add(value);
+            pointer += len;
+        }
+        index = pointer; // tag + cant + content
+        return results.Select(num => new CodecItemString() { Number = num });
+    }
+
+    private CodecItemByte InternalDecodeByteWithData(byte[] bytes, ref int index)
     {
         var result = new CodecItemByte();
         var typesize = 1;
@@ -315,11 +340,11 @@ internal static class InternalEncoder
         pointer += typesize; // data size
         var dataSize = BitConverter.ToUInt16(bytes.AsSpan(pointer, 2));
         pointer += 2; // data
-        result.Data = Encoding.UTF8.GetString(bytes.AsSpan(pointer, dataSize));
+        result.Data = StringDecoder([..bytes.AsSpan(pointer, dataSize)]);
         index = pointer + dataSize;
         return result;
     }
-    private static CodecItemUshort InternalDecodeUshortWithData(byte[] bytes, ref int index)
+    private CodecItemUshort InternalDecodeUshortWithData(byte[] bytes, ref int index)
     {
         var result = new CodecItemUshort();
         var typesize = 2;
@@ -328,11 +353,11 @@ internal static class InternalEncoder
         pointer += typesize; // data size
         var dataSize = BitConverter.ToUInt16(bytes.AsSpan(pointer, 2));
         pointer += 2; // data
-        result.Data = Encoding.UTF8.GetString(bytes.AsSpan(pointer, dataSize));
+        result.Data = StringDecoder([.. bytes.AsSpan(pointer, dataSize)]);
         index = pointer + dataSize;
         return result;
     }
-    private static CodecItemShort InternalDecodeShortWithData(byte[] bytes, ref int index)
+    private CodecItemShort InternalDecodeShortWithData(byte[] bytes, ref int index)
     {
         var result = new CodecItemShort();
         var typesize = 2;
@@ -341,11 +366,11 @@ internal static class InternalEncoder
         pointer += typesize; // data size
         var dataSize = BitConverter.ToUInt16(bytes.AsSpan(pointer, 2));
         pointer += 2; // data
-        result.Data = Encoding.UTF8.GetString(bytes.AsSpan(pointer, dataSize));
+        result.Data = StringDecoder([.. bytes.AsSpan(pointer, dataSize)]);
         index = pointer + dataSize;
         return result;
     }
-    private static CodecItemUint InternalDecodeUintWithData(byte[] bytes, ref int index)
+    private CodecItemUint InternalDecodeUintWithData(byte[] bytes, ref int index)
     {
         var result = new CodecItemUint();
         var typesize = 4;
@@ -354,11 +379,11 @@ internal static class InternalEncoder
         pointer += typesize; // data size
         var dataSize = BitConverter.ToUInt16(bytes.AsSpan(pointer, 2));
         pointer += 2; // data
-        result.Data = Encoding.UTF8.GetString(bytes.AsSpan(pointer, dataSize));
+        result.Data = StringDecoder([.. bytes.AsSpan(pointer, dataSize)]);
         index = pointer + dataSize;
         return result;
     }
-    private static CodecItemInt InternalDecodeIntWithData(byte[] bytes, ref int index)
+    private CodecItemInt InternalDecodeIntWithData(byte[] bytes, ref int index)
     {
         var result = new CodecItemInt();
         var typesize = 4;
@@ -367,11 +392,11 @@ internal static class InternalEncoder
         pointer += typesize; // data size
         var dataSize = BitConverter.ToUInt16(bytes.AsSpan(pointer, 2));
         pointer += 2; // data
-        result.Data = Encoding.UTF8.GetString(bytes.AsSpan(pointer, dataSize));
+        result.Data = StringDecoder([.. bytes.AsSpan(pointer, dataSize)]);
         index = pointer + dataSize;
         return result;
     }
-    private static CodecItemUlong InternalDecodeUlongWithData(byte[] bytes, ref int index)
+    private CodecItemUlong InternalDecodeUlongWithData(byte[] bytes, ref int index)
     {
         var result = new CodecItemUlong();
         var typesize = 8;
@@ -380,11 +405,11 @@ internal static class InternalEncoder
         pointer += typesize; // data size
         var dataSize = BitConverter.ToUInt16(bytes.AsSpan(pointer, 2));
         pointer += 2; // data
-        result.Data = Encoding.UTF8.GetString(bytes.AsSpan(pointer, dataSize));
+        result.Data = StringDecoder([.. bytes.AsSpan(pointer, dataSize)]);
         index = pointer + dataSize;
         return result;
     }
-    private static CodecItemLong InternalDecodeLongWithData(byte[] bytes, ref int index)
+    private CodecItemLong InternalDecodeLongWithData(byte[] bytes, ref int index)
     {
         var result = new CodecItemLong();
         var typesize = 8;
@@ -393,11 +418,11 @@ internal static class InternalEncoder
         pointer += typesize; // data size
         var dataSize = BitConverter.ToUInt16(bytes.AsSpan(pointer, 2));
         pointer += 2; // data
-        result.Data = Encoding.UTF8.GetString(bytes.AsSpan(pointer, dataSize));
+        result.Data = StringDecoder([.. bytes.AsSpan(pointer, dataSize)]);
         index = pointer + dataSize;
         return result;
     }
-    private static CodecItemFloat InternalDecodeFloatWithData(byte[] bytes, ref int index)
+    private CodecItemFloat InternalDecodeFloatWithData(byte[] bytes, ref int index)
     {
         var result = new CodecItemFloat();
         var typesize = 4;
@@ -406,11 +431,11 @@ internal static class InternalEncoder
         pointer += typesize; // data size
         var dataSize = BitConverter.ToUInt16(bytes.AsSpan(pointer, 2));
         pointer += 2; // data
-        result.Data = Encoding.UTF8.GetString(bytes.AsSpan(pointer, dataSize));
+        result.Data = StringDecoder([.. bytes.AsSpan(pointer, dataSize)]);
         index = pointer + dataSize;
         return result;
     }
-    private static CodecItemDouble InternalDecodeDoubleWithData(byte[] bytes, ref int index)
+    private CodecItemDouble InternalDecodeDoubleWithData(byte[] bytes, ref int index)
     {
         var result = new CodecItemDouble();
         var typesize = 8;
@@ -419,11 +444,11 @@ internal static class InternalEncoder
         pointer += typesize; // data size
         var dataSize = BitConverter.ToUInt16(bytes.AsSpan(pointer, 2));
         pointer += 2; // data
-        result.Data = Encoding.UTF8.GetString(bytes.AsSpan(pointer, dataSize));
+        result.Data = StringDecoder([.. bytes.AsSpan(pointer, dataSize)]);
         index = pointer + dataSize;
         return result;
     }
-    private static CodecItemDecimal InternalDecodeDecimalWithData(byte[] bytes, ref int index)
+    private CodecItemDecimal InternalDecodeDecimalWithData(byte[] bytes, ref int index)
     {
         var result = new CodecItemDecimal();
         var typesize = 16;
@@ -432,11 +457,11 @@ internal static class InternalEncoder
         pointer += typesize; // data size
         var dataSize = BitConverter.ToUInt16(bytes.AsSpan(pointer, 2));
         pointer += 2; // data
-        result.Data = Encoding.UTF8.GetString(bytes.AsSpan(pointer, dataSize));
+        result.Data = StringDecoder([.. bytes.AsSpan(pointer, dataSize)]);
         index = pointer + dataSize;
         return result;
     }
-    private static CodecItemGuid InternalDecodeGuidWithData(byte[] bytes, ref int index)
+    private CodecItemGuid InternalDecodeGuidWithData(byte[] bytes, ref int index)
     {
         var result = new CodecItemGuid();
         var typesize = 16;
@@ -445,7 +470,21 @@ internal static class InternalEncoder
         pointer += typesize; // data size
         var dataSize = BitConverter.ToUInt16(bytes.AsSpan(pointer, 2));
         pointer += 2; // data
-        result.Data = Encoding.UTF8.GetString(bytes.AsSpan(pointer, dataSize));
+        result.Data = StringDecoder([.. bytes.AsSpan(pointer, dataSize)]);
+        index = pointer + dataSize;
+        return result;
+    }
+    private CodecItemString InternalDecodeStringWithData(byte[] bytes, ref int index)
+    {
+        var result = new CodecItemString();
+
+        var cant = BitConverter.ToUInt16(bytes.AsSpan(index + 1, 2));
+        var pointer = index + 1 + 2;
+        result.Number = StringDecoder([.. bytes.AsSpan(pointer, pointer + cant)]);
+        pointer += cant;
+        var dataSize = BitConverter.ToUInt16(bytes.AsSpan(pointer, 2));
+        pointer += 2; // data
+        result.Data = StringDecoder([.. bytes.AsSpan(pointer, dataSize)]);
         index = pointer + dataSize;
         return result;
     }

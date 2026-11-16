@@ -251,3 +251,23 @@ public class CodecItemGuid : CodecItem
         return $"(Guid) {Number}{(Data != null ? $" : {Data}" : "")}";
     }
 }
+
+/// <summary>
+/// Represents a codec item whose numeric value is a Guid.
+/// </summary>
+public class CodecItemString : CodecItem
+{
+    /// <summary>
+    /// The numeric value as a String.
+    /// </summary>
+    public new string Number { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Returns a string representation including the String prefix and optional data.
+    /// </summary>
+    /// <returns>A human-readable representation of the item.</returns>
+    public override string ToString()
+    {
+        return $"(String) {Number}{(Data != null ? $" : {Data}" : "")}";
+    }
+}

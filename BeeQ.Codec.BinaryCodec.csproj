@@ -16,6 +16,7 @@
 		<PackageIcon>Beeq.Codec.BinaryCodec.png</PackageIcon>
 		<Title>BeeQ Codec.BinaryCodec</Title>
 		<RepositoryType>git</RepositoryType>
+		<PackageReleaseNotes>Now can use strings as key</PackageReleaseNotes>
 	</PropertyGroup>
 
 	<ItemGroup>

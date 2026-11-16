@@ -75,6 +75,7 @@ public interface ICodecDecoder
 
 internal class CodecDecoder : ICodecDecoder
 {
+    private InternalEncoder InternalEncoder { get; set; } = new();
     private byte[] Content { get; set; }
     private List<CodecItem> Elements { get; set; } = [];
 

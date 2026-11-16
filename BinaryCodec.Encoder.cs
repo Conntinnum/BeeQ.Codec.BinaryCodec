@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Diagnostics;
+using System.Text;
 
 namespace BeeQ.Codec.BinaryCodec;
 
@@ -104,6 +105,14 @@ public interface ICodecEncoder
     /// <param name="data">Optional associated string data.</param>
     /// <returns>The current <see cref="ICodecEncoder"/> instance for chaining.</returns>
     ICodecEncoder Add(Guid num, string? data = null);
+
+    /// <summary>
+    /// Adds a single String value to the encoder.
+    /// </summary>
+    /// <param name="num">The String value to add.</param>
+    /// <param name="data">Optional associated string data.</param>
+    /// <returns>The current <see cref="ICodecEncoder"/> instance for chaining.</returns>
+    ICodecEncoder Add(string num, string? data = null);
 
     /// <summary>
     /// Adds multiple byte values to the encoder.
@@ -260,6 +269,16 @@ public interface ICodecEncoder
     ICodecEncoder AddRange(IEnumerable<KeyValuePair<Guid, string?>> values);
 
     /// <summary>
+    /// Adds multiple key/value pairs where the key is a string and the value is optional data.
+    /// </summary>
+    /// <param name="values">Sequence of key/value pairs to add.</param>
+    /// <returns>The current <see cref="ICodecEncoder"/> instance for chaining.</returns>
+    ICodecEncoder AddRange(IEnumerable<KeyValuePair<string, string?>> values);
+
+    ICodecEncoder UseEncoder(Encoding encoding);
+    ICodecEncoder UseEncoder(Func<string, byte[]> encoder, Func<byte[], string> decoder);
+
+    /// <summary>
     /// Marks the encoder as an empty payload.
     /// </summary>
     /// <returns>The current <see cref="ICodecEncoder"/> instance for chaining.</returns>
@@ -292,10 +311,11 @@ internal class CodecEncoder : ICodecEncoder
         Full
     }
 
+    private readonly InternalEncoder InternalEncoder = new();
     protected CodecStatus Status = CodecStatus.Empty;
     private List<TElement> Elements { get; set; } = [];
 
-    private static byte[]? GetExtraDataBytes(string? extra) => string.IsNullOrEmpty(extra) ? null : Encoding.UTF8.GetBytes(extra);
+    private byte[]? GetExtraDataBytes(string? extra) => string.IsNullOrEmpty(extra) ? null : InternalEncoder.StringEncoder(extra);
 
     public ICodecEncoder Add(byte num, string? data = null) => InternalAdd(InternalEncoder.TAG_NUMBERS_BYTE, InternalEncoder.TAG_NUMBERS_WHITDATA_BYTE, num, [num], data, GetExtraDataBytes(data));
     public ICodecEncoder Add(ushort num, string? data = null) => InternalAdd(InternalEncoder.TAG_NUMBERS_USHORT, InternalEncoder.TAG_NUMBERS_WHITDATA_USHORT, num, BitConverter.GetBytes(num), data, GetExtraDataBytes(data));
@@ -308,6 +328,7 @@ internal class CodecEncoder : ICodecEncoder
     public ICodecEncoder Add(double num, string? data = null) => InternalAdd(InternalEncoder.TAG_NUMBERS_DOUBLE, InternalEncoder.TAG_NUMBERS_WHITDATA_DOUBLE, num, BitConverter.GetBytes(num), data, GetExtraDataBytes(data));
     public ICodecEncoder Add(decimal num, string? data = null) => InternalAdd(InternalEncoder.TAG_NUMBERS_DECIMAL, InternalEncoder.TAG_NUMBERS_WHITDATA_DECIMAL, num, InternalEncoder.DecimalToBytes(num), data, GetExtraDataBytes(data));
     public ICodecEncoder Add(Guid num, string? data = null) => InternalAdd(InternalEncoder.TAG_NUMBERS_GUID, InternalEncoder.TAG_NUMBERS_WHITDATA_GUID, num, num.ToByteArray(), data, GetExtraDataBytes(data));
+    public ICodecEncoder Add(string num, string? data = null) => InternalAdd(InternalEncoder.TAG_NUMBERS_STRING, InternalEncoder.TAG_NUMBERS_WHITDATA_STRING, num, InternalEncoder.StringEncoder(num), data, GetExtraDataBytes(data));
 
     public ICodecEncoder AddRange(IEnumerable<byte> values) => InternalAddRange(InternalEncoder.TAG_NUMBERS_BYTE, InternalEncoder.TAG_NUMBERS_WHITDATA_BYTE, values.Select(num => new TElement(0x00, num, [num], null, null)));
     public ICodecEncoder AddRange(IEnumerable<ushort> values) => InternalAddRange(InternalEncoder.TAG_NUMBERS_USHORT, InternalEncoder.TAG_NUMBERS_WHITDATA_USHORT, values.Select(num => new TElement(0x00, num, BitConverter.GetBytes(num), null, null)));
@@ -320,6 +341,7 @@ internal class CodecEncoder : ICodecEncoder
     public ICodecEncoder AddRange(IEnumerable<double> values) => InternalAddRange(InternalEncoder.TAG_NUMBERS_DOUBLE, InternalEncoder.TAG_NUMBERS_WHITDATA_DOUBLE, values.Select(num => new TElement(0x00, num, BitConverter.GetBytes(num), null, null)));
     public ICodecEncoder AddRange(IEnumerable<decimal> values) => InternalAddRange(InternalEncoder.TAG_NUMBERS_DECIMAL, InternalEncoder.TAG_NUMBERS_WHITDATA_DECIMAL, values.Select(num => new TElement(0x00, num, InternalEncoder.DecimalToBytes(num), null, null)));
     public ICodecEncoder AddRange(IEnumerable<Guid> values) => InternalAddRange(InternalEncoder.TAG_NUMBERS_GUID, InternalEncoder.TAG_NUMBERS_WHITDATA_GUID, values.Select(num => new TElement(0x00, num, num.ToByteArray(), null, null)));
+    public ICodecEncoder AddRange(IEnumerable<string> values) => InternalAddRange(InternalEncoder.TAG_NUMBERS_STRING, InternalEncoder.TAG_NUMBERS_WHITDATA_STRING, values.Select(num => new TElement(0x00, num, InternalEncoder.StringEncoder(num), null, null)));
 
     public ICodecEncoder AddRange(IEnumerable<KeyValuePair<byte, string?>> values) => InternalAddRange(InternalEncoder.TAG_NUMBERS_BYTE, InternalEncoder.TAG_NUMBERS_WHITDATA_BYTE, values.Select(num => new TElement(0x00, num.Key, [num.Key], num.Value, GetExtraDataBytes(num.Value))));
     public ICodecEncoder AddRange(IEnumerable<KeyValuePair<ushort, string?>> values) => InternalAddRange(InternalEncoder.TAG_NUMBERS_USHORT, InternalEncoder.TAG_NUMBERS_WHITDATA_USHORT, values.Select(num => new TElement(0x00, num.Key, BitConverter.GetBytes(num.Key), num.Value, GetExtraDataBytes(num.Value))));
@@ -332,12 +354,17 @@ internal class CodecEncoder : ICodecEncoder
     public ICodecEncoder AddRange(IEnumerable<KeyValuePair<double, string?>> values) => InternalAddRange(InternalEncoder.TAG_NUMBERS_DOUBLE, InternalEncoder.TAG_NUMBERS_WHITDATA_DOUBLE, values.Select(num => new TElement(0x00, num.Key, BitConverter.GetBytes(num.Key), num.Value, GetExtraDataBytes(num.Value))));
     public ICodecEncoder AddRange(IEnumerable<KeyValuePair<decimal, string?>> values) => InternalAddRange(InternalEncoder.TAG_NUMBERS_DECIMAL, InternalEncoder.TAG_NUMBERS_WHITDATA_DECIMAL, values.Select(num => new TElement(0x00, num.Key, InternalEncoder.DecimalToBytes(num.Key), num.Value, GetExtraDataBytes(num.Value))));
     public ICodecEncoder AddRange(IEnumerable<KeyValuePair<Guid, string?>> values) => InternalAddRange(InternalEncoder.TAG_NUMBERS_GUID, InternalEncoder.TAG_NUMBERS_WHITDATA_GUID, values.Select(num => new TElement(0x00, num.Key, num.Key.ToByteArray(), num.Value, GetExtraDataBytes(num.Value))));
+    public ICodecEncoder AddRange(IEnumerable<KeyValuePair<string, string?>> values) => InternalAddRange(InternalEncoder.TAG_NUMBERS_STRING, InternalEncoder.TAG_NUMBERS_WHITDATA_STRING, values.Select(num => new TElement(0x00, num.Key, InternalEncoder.StringEncoder(num.Key), num.Value, GetExtraDataBytes(num.Value))));
 
 
     private CodecEncoder InternalAdd(byte code, byte codeWithData, object num, byte[] numBytes, string? extra = null, byte[]? extraBytes = null)
     {
         Status = CodecStatus.WithData;
         var withData = !string.IsNullOrEmpty(extra);
+
+        if (code == InternalEncoder.TAG_NUMBERS_STRING)
+            numBytes = [.. BitConverter.GetBytes((short)numBytes.Length), .. numBytes]; // a los strings se le agrega un prefijo de cant de caracteres
+
         Elements.Add(new TElement(withData ? codeWithData : code, num, numBytes, withData ? extra : null, withData ? extraBytes : null));
         return this;
     }
@@ -353,6 +380,46 @@ internal class CodecEncoder : ICodecEncoder
 
             Elements.Add(new TElement(withData ? codeWithData : code, value.Number, value.NumberBytes, withData ? value.ExtraData : null, withData ? value.ExtraDataBytes : null));
         }
+        return this;
+    }
+
+    public ICodecEncoder UseEncoder(Encoding encoding)
+    {
+        byte[] _Encoder(string value)
+        {
+            var s = value.AsSpan();
+
+            var encoder = encoding.GetEncoder();
+            int byteCount = encoder.GetByteCount(s, true);
+            byte[] bytes = new byte[byteCount];
+            int bytesReceived = encoder.GetBytes(s, bytes, true);
+            Debug.Assert(byteCount == bytesReceived);
+            return bytes;
+        }
+
+        string _Decoder(byte[] span)
+        {
+            var decoder = encoding.GetDecoder();
+
+            int charCount = decoder.GetCharCount(span, flush: true);
+            char[] chars = new char[charCount];
+            int charsReceived = decoder.GetChars(span, chars, flush: true);
+
+            Debug.Assert(charCount == charsReceived);
+
+            return new string(chars);
+        }
+
+        InternalEncoder.StringEncoder = _Encoder;
+        InternalEncoder.StringDecoder = _Decoder;
+
+        return this;
+    }
+
+    public ICodecEncoder UseEncoder(Func<string, byte[]> encoder, Func<byte[], string> decoder)
+    {
+        InternalEncoder.StringEncoder = encoder;
+        InternalEncoder.StringDecoder = decoder;
         return this;
     }
 
